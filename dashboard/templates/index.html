@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Scrapling Web Dashboard</title>
+  <link rel="stylesheet" href="/static/styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header -->
+    <header class="navbar">
+      <div class="brand">
+        <div class="logo-badge">🕷️</div>
+        <div>
+          <h1>Scrapling Web Dashboard</h1>
+          <p class="subtitle">Undetectable & Adaptive Web Scraping Engine</p>
+        </div>
+      </div>
+      <div class="nav-actions">
+        <span id="engine-status" class="status-badge status-checking">Checking Engine...</span>
+        <a href="/docs" target="_blank" class="btn btn-outline btn-sm">API Docs</a>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="dashboard-grid">
+      <!-- Left Column: Controls & Configuration -->
+      <section class="card config-card">
+        <h2 class="section-title">Scraper Configuration</h2>
+        
+        <form id="scrape-form" onsubmit="event.preventDefault(); runScrape();">
+          <!-- Target URL -->
+          <div class="form-group">
+            <label for="target-url">Target URL</label>
+            <div class="url-input-wrap">
+              <input type="url" id="target-url" placeholder="https://example.com" required value="https://quotes.toscrape.com/">
+            </div>
+          </div>
+
+          <!-- Fetcher Engine -->
+          <div class="form-group">
+            <label for="engine-select">Fetcher Engine</label>
+            <select id="engine-select">
+              <option value="basic">⚡ Basic HTTP Fetcher (Fast & Lightweight)</option>
+              <option value="stealthy">🛡️ Stealthy Fetcher (Cloudflare & Anti-Bot Bypass)</option>
+              <option value="dynamic">🌐 Dynamic Fetcher (Headless Chrome + JS Execution)</option>
+            </select>
+          </div>
+
+          <!-- Options -->
+          <div class="form-row">
+            <label class="checkbox-label">
+              <input type="checkbox" id="network-idle"> Wait for Network Idle (JS sites)
+            </label>
+          </div>
+
+          <!-- Presets or Custom -->
+          <div class="form-group">
+            <label>Extraction Mode</label>
+            <div class="radio-tabs">
+              <label class="radio-tab active" data-mode="custom">
+                <input type="radio" name="extraction-mode" value="custom" checked> Custom Selectors
+              </label>
+              <label class="radio-tab" data-mode="headings">
+                <input type="radio" name="extraction-mode" value="headings"> Page Headings
+              </label>
+              <label class="radio-tab" data-mode="links">
+                <input type="radio" name="extraction-mode" value="links"> All Links
+              </label>
+              <label class="radio-tab" data-mode="metadata">
+                <input type="radio" name="extraction-mode" value="metadata"> Metadata & SEO
+              </label>
+            </div>
+          </div>
+
+          <!-- Custom Selector Builder -->
+          <div id="custom-selectors-section">
+            <div class="selector-builder-header">
+              <label>Custom Field Selectors</label>
+              <button type="button" class="btn btn-sm btn-secondary" onclick="addSelectorRow()">+ Add Field</button>
+            </div>
+            <div id="selectors-container" class="selectors-list">
+              <!-- Dynamically populated or default rows -->
+            </div>
+          </div>
+
+          <!-- Submit Button -->
+          <div class="action-bar">
+            <button type="submit" id="scrape-btn" class="btn btn-primary btn-block">
+              <span class="btn-text">Execute Scrape</span>
+              <span class="spinner hidden"></span>
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <!-- Right Column: Results & Exporters -->
+      <section class="card results-card">
+        <div class="results-header">
+          <div>
+            <h2 class="section-title">Extracted Results</h2>
+            <div id="metrics-bar" class="metrics-bar hidden">
+              <span id="metric-status" class="badge badge-success">200 OK</span>
+              <span id="metric-time" class="badge badge-info">0 ms</span>
+              <span id="metric-records" class="badge badge-secondary">0 items</span>
+            </div>
+          </div>
+
+          <div class="export-actions">
+            <button id="btn-export-json" class="btn btn-outline btn-sm" onclick="exportData('json')" disabled>Export JSON</button>
+            <button id="btn-export-csv" class="btn btn-outline btn-sm" onclick="exportData('csv')" disabled>Export CSV</button>
+          </div>
+        </div>
+
+        <!-- View Tabs -->
+        <div class="view-tabs">
+          <button class="view-tab active" data-view="table" onclick="switchView('table')">Data Table</button>
+          <button class="view-tab" data-view="json" onclick="switchView('json')">JSON Viewer</button>
+          <button class="view-tab" data-view="html" onclick="switchView('html')">HTML Source Preview</button>
+        </div>
+
+        <!-- View Panels -->
+        <div class="view-content">
+          <!-- Empty State -->
+          <div id="empty-state" class="empty-state">
+            <div class="empty-icon">🔍</div>
+            <h3>Ready to extract</h3>
+            <p>Enter a target URL and click <strong>Execute Scrape</strong> to pull live data.</p>
+          </div>
+
+          <!-- Loading State -->
+          <div id="loading-state" class="empty-state hidden">
+            <div class="loader"></div>
+            <h3>Scraping target website...</h3>
+            <p id="loading-message">Fetching page and resolving elements...</p>
+          </div>
+
+          <!-- Table View -->
+          <div id="table-view" class="view-panel hidden">
+            <div class="table-wrap">
+              <table id="results-table">
+                <thead id="table-head"></thead>
+                <tbody id="table-body"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- JSON View -->
+          <div id="json-view" class="view-panel hidden">
+            <div class="code-actions">
+              <button class="btn btn-sm btn-ghost" onclick="copyJson()">Copy to Clipboard</button>
+            </div>
+            <pre><code id="json-display"></code></pre>
+          </div>
+
+          <!-- HTML Preview -->
+          <div id="html-view" class="view-panel hidden">
+            <pre><code id="html-display"></code></pre>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Bottom History Drawer -->
+    <section class="card history-card">
+      <div class="history-header">
+        <h3 class="section-title">Recent Scrape History</h3>
+        <button class="btn btn-sm btn-ghost" onclick="loadHistory()">Refresh</button>
+      </div>
+      <div id="history-container" class="history-list">
+        <p class="history-empty">No recent scraping runs yet.</p>
+      </div>
+    </section>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
